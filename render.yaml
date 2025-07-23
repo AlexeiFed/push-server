@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: push-server
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /status
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false 

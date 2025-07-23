@@ -1,0 +1,37 @@
+{
+  "name": "push-server",
+  "version": "1.0.0",
+  "description": "Сервер для отправки push-уведомлений через Web Push API",
+  "main": "fixed-unified-server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node fixed-unified-server.js",
+    "dev": "nodemon fixed-unified-server.js",
+    "send-all": "node send-alarm-push.js",
+    "send-users": "node send-alarm-push.js --users",
+    "clean": "node clean-subscriptions.js",
+    "create-user": "node create-user.js",
+    "delete-user": "node delete-user.js",
+    "force-logout": "node force-logout-notification.js"
+  },
+  "keywords": [
+    "push",
+    "notifications",
+    "web-push",
+    "firebase",
+    "vapid"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
+    "express": "^4.18.2",
+    "firebase-admin": "^13.4.0",
+    "web-push": "^3.6.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
