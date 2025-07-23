@@ -238,6 +238,12 @@ app.post('/sendForceLogoutNotification', async (req, res) => {
                     requireInteraction: true
                 });
 
+                console.log('📤 Отправляем уведомление на подписку:', {
+                    id: doc.id,
+                    endpoint: subscription.endpoint.substring(0, 50) + '...',
+                    payloadLength: payload.length
+                });
+
                 await webpush.sendNotification(
                     {
                         endpoint: subscription.endpoint,
@@ -250,25 +256,30 @@ app.post('/sendForceLogoutNotification', async (req, res) => {
                 );
 
                 sentCount++;
-                console.log('Уведомление отправлено на подписку:', doc.id);
+                console.log('✅ Уведомление отправлено на подписку:', doc.id);
 
             } catch (error) {
-                console.error('Ошибка отправки уведомления на подписку:', doc.id, error);
+                console.error('❌ Ошибка отправки уведомления на подписку:', {
+                    id: doc.id,
+                    error: error.message,
+                    statusCode: error.statusCode,
+                    endpoint: subscription.endpoint.substring(0, 50) + '...'
+                });
                 errors.push({ subscriptionId: doc.id, error: error.message });
 
                 // Если подписка недействительна, удаляем её
                 if (error.statusCode === 410) {
                     try {
                         await doc.ref.delete();
-                        console.log('Удалена недействительная подписка:', doc.id);
+                        console.log('🗑️ Удалена недействительная подписка:', doc.id);
                     } catch (deleteError) {
-                        console.error('Ошибка удаления недействительной подписки:', deleteError);
+                        console.error('❌ Ошибка удаления недействительной подписки:', deleteError);
                     }
                 }
             }
         }
 
-        console.log('Отправка завершена:', { sentCount, errors: errors.length });
+        console.log('Отправка завершена:', { sentCount, errors: errors.length, totalSubscriptions: subscriptions.length });
 
         res.json({
             success: true,
