@@ -49,7 +49,7 @@ app.get('/status', (req, res) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        version: '2.1.0',
+        version: '2.2.0',
         services: ['push', 'create-user', 'delete-user', 'force-logout']
     });
 });
@@ -174,19 +174,29 @@ app.post('/sendForceLogoutNotification', async (req, res) => {
 
         // Отправляем уведомление на все подписки пользователя
         for (const doc of querySnapshot.docs) {
-            const subscription = doc.data();
+            const subscriptionData = doc.data();
+
+            // Обрабатываем разные структуры подписки
+            let subscription;
+            if (subscriptionData.subscription) {
+                // Структура: { userId, subscription: { endpoint, keys } }
+                subscription = subscriptionData.subscription;
+            } else {
+                // Структура: { endpoint, keys }
+                subscription = subscriptionData;
+            }
 
             console.log('Подписка найдена:', {
                 id: doc.id,
-                userId: subscription.userId,
+                userId: subscriptionData.userId,
                 hasEndpoint: !!subscription.endpoint,
                 hasKeys: !!subscription.keys,
-                keysStructure: subscription.keys ? Object.keys(subscription.keys) : 'no keys'
+                keysStructure: subscription.keys ? Object.keys(subscription.keys).join(', ') : 'no keys'
             });
 
             // Проверяем структуру подписки
             if (!subscription.endpoint || !subscription.keys) {
-                console.error('Неверная структура подписки:', subscription);
+                console.error('Неверная структура подписки:', subscriptionData);
                 errors.push({
                     subscriptionId: doc.id,
                     error: 'Неверная структура подписки - отсутствует endpoint или keys'
@@ -328,11 +338,21 @@ app.post('/send-alarm', async (req, res) => {
         const errors = [];
 
         for (const doc of querySnapshot.docs) {
-            const subscription = doc.data();
+            const subscriptionData = doc.data();
+
+            // Обрабатываем разные структуры подписки
+            let subscription;
+            if (subscriptionData.subscription) {
+                // Структура: { userId, subscription: { endpoint, keys } }
+                subscription = subscriptionData.subscription;
+            } else {
+                // Структура: { endpoint, keys }
+                subscription = subscriptionData;
+            }
 
             // Проверяем структуру подписки
             if (!subscription.endpoint || !subscription.keys) {
-                console.error('Неверная структура подписки:', subscription);
+                console.error('Неверная структура подписки:', subscriptionData);
                 errors.push({
                     subscriptionId: doc.id,
                     error: 'Неверная структура подписки'
@@ -342,7 +362,11 @@ app.post('/send-alarm', async (req, res) => {
 
             // Проверяем наличие необходимых ключей
             if (!subscription.keys.p256dh || !subscription.keys.auth) {
-                console.error('Отсутствуют необходимые ключи в подписке:', doc.id);
+                console.error('Отсутствуют необходимые ключи в подписке:', doc.id, {
+                    hasEndpoint: !!subscription.endpoint,
+                    hasKeys: !!subscription.keys,
+                    keysStructure: subscription.keys ? Object.keys(subscription.keys).join(', ') : 'no keys'
+                });
                 errors.push({
                     subscriptionId: doc.id,
                     error: 'Отсутствуют необходимые ключи'
@@ -434,6 +458,69 @@ app.get('/stats', async (req, res) => {
     } catch (error) {
         console.error('Ошибка получения статистики:', error);
         res.status(500).json({ error: 'Ошибка получения статистики' });
+    }
+});
+
+// ===== СОХРАНЕНИЕ PUSH-ПОДПИСКИ =====
+app.post('/savePushSubscription', async (req, res) => {
+    try {
+        const { userId, subscription } = req.body;
+
+        if (!userId || !subscription) {
+            return res.status(400).json({
+                error: 'Не указаны обязательные параметры: userId, subscription'
+            });
+        }
+
+        const db = admin.firestore();
+        await db.collection('push_subscriptions').doc(userId).set({
+            userId,
+            subscription,
+            createdAt: new Date(),
+            persistent: true
+        });
+
+        console.log('Push-подписка сохранена для пользователя:', userId);
+
+        res.json({
+            success: true,
+            message: 'Push-подписка успешно сохранена'
+        });
+
+    } catch (error) {
+        console.error('Ошибка сохранения push-подписки:', error);
+        res.status(500).json({
+            error: 'Ошибка сохранения push-подписки: ' + error.message
+        });
+    }
+});
+
+// ===== УДАЛЕНИЕ PUSH-ПОДПИСКИ =====
+app.post('/removePushSubscription', async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({
+                error: 'Не указан userId'
+            });
+        }
+
+        const db = admin.firestore();
+        await db.collection('push_subscriptions').doc(userId).delete();
+
+        console.log('Push-подписка удалена для пользователя:', userId);
+
+        res.json({
+            success: true,
+            message: 'Push-подписка успешно удалена'
+        });
+
+    } catch (error) {
+        console.error('Ошибка удаления push-подписки:', error);
+        res.status(500).json({
+            error: 'Ошибка удаления push-подписки: ' + error.message
+        });
     }
 });
 
