@@ -345,11 +345,35 @@ app.post('/send-alarm', async (req, res) => {
             });
         }
 
+        // Получаем список активных пользователей для проверки
+        console.log('📋 Получение списка активных пользователей...');
+        const usersSnapshot = await db.collection('users').get();
+        const activeUserIds = new Set();
+
+        usersSnapshot.forEach(doc => {
+            const userData = doc.data();
+            // Считаем пользователя активным, если он существует в базе
+            activeUserIds.add(doc.id);
+        });
+
+        console.log(`📊 Найдено активных пользователей: ${activeUserIds.size}`);
+
         let sentCount = 0;
         const errors = [];
 
         for (const doc of querySnapshot.docs) {
             const subscriptionData = doc.data();
+
+            // Проверяем, активен ли пользователь подписки
+            const userId = subscriptionData.userId;
+            if (userId && !activeUserIds.has(userId)) {
+                console.log(`⚠️ Пользователь ${userId} не найден в активных пользователях, пропускаем подписку`);
+                errors.push({
+                    subscriptionId: doc.id,
+                    error: 'Пользователь неактивен или удален'
+                });
+                continue;
+            }
 
             // Обрабатываем разные структуры подписки
             let subscription;
