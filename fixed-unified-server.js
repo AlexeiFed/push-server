@@ -54,10 +54,41 @@ app.get('/status', (req, res) => {
     });
 });
 
+// ===== УТИЛИТЫ =====
+function formatPhoneNumber(phone) {
+    if (!phone) return '';
+    
+    // Удаляем все символы кроме цифр
+    const digits = phone.replace(/\D/g, '');
+    
+    // Если номер начинается с 8, заменяем на +7
+    if (digits.startsWith('8') && digits.length === 11) {
+        return '+7' + digits.substring(1);
+    }
+    
+    // Если номер начинается с 7, добавляем +
+    if (digits.startsWith('7') && digits.length === 11) {
+        return '+' + digits;
+    }
+    
+    // Если номер уже в формате +7, возвращаем как есть
+    if (phone.startsWith('+7') && digits.length === 11) {
+        return phone;
+    }
+    
+    // Если номер короткий, добавляем +7
+    if (digits.length === 10) {
+        return '+7' + digits;
+    }
+    
+    // Возвращаем исходный номер если не удалось определить формат
+    return phone;
+}
+
 // ===== СОЗДАНИЕ ПОЛЬЗОВАТЕЛЯ =====
 app.post('/createUser', async (req, res) => {
     try {
-        const { email, password, role, name } = req.body;
+        const { email, password, role, name, phone } = req.body;
 
         if (!email || !password || !role || !name) {
             return res.status(400).json({
@@ -71,10 +102,14 @@ app.post('/createUser', async (req, res) => {
             displayName: name
         });
 
+        // Форматируем номер телефона
+        const formattedPhone = formatPhoneNumber(phone);
+        
         const userData = {
             email: email,
             role: role,
             name: name,
+            phone: formattedPhone,
             createdAt: new Date()
         };
 
@@ -92,6 +127,7 @@ app.post('/createUser', async (req, res) => {
             email: email,
             role: role,
             name: name,
+            phone: formattedPhone,
             createdAt: new Date()
         });
 
