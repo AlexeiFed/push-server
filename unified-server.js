@@ -57,7 +57,7 @@ app.get('/status', (req, res) => {
 // ===== СОЗДАНИЕ ПОЛЬЗОВАТЕЛЯ =====
 app.post('/createUser', async (req, res) => {
     try {
-        const { email, password, role, name } = req.body;
+        const { email, password, role, name, phone } = req.body;
 
         if (!email || !password || !role || !name) {
             return res.status(400).json({
@@ -75,6 +75,7 @@ app.post('/createUser', async (req, res) => {
             email: email,
             role: role,
             name: name,
+            phone: phone || '',
             createdAt: new Date()
         };
 
@@ -92,6 +93,7 @@ app.post('/createUser', async (req, res) => {
             email: email,
             role: role,
             name: name,
+            phone: phone || '',
             createdAt: new Date()
         });
 
