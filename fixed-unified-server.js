@@ -50,37 +50,37 @@ app.get('/status', (req, res) => {
         status: 'ok',
         timestamp: new Date().toISOString(),
         version: '2.2.0',
-        services: ['push', 'create-user', 'delete-user', 'force-logout']
+        services: ['push', 'create-user', 'delete-user', 'force-logout', 'callDog-webhook']
     });
 });
 
 // ===== УТИЛИТЫ =====
 function formatPhoneNumber(phone) {
     if (!phone) return '';
-    
+
     // Удаляем все символы кроме цифр
     const digits = phone.replace(/\D/g, '');
-    
+
     // Если номер начинается с 8, заменяем на +7
     if (digits.startsWith('8') && digits.length === 11) {
         return '+7' + digits.substring(1);
     }
-    
+
     // Если номер начинается с 7, добавляем +
     if (digits.startsWith('7') && digits.length === 11) {
         return '+' + digits;
     }
-    
+
     // Если номер уже в формате +7, возвращаем как есть
     if (phone.startsWith('+7') && digits.length === 11) {
         return phone;
     }
-    
+
     // Если номер короткий, добавляем +7
     if (digits.length === 10) {
         return '+7' + digits;
     }
-    
+
     // Возвращаем исходный номер если не удалось определить формат
     return phone;
 }
@@ -104,7 +104,7 @@ app.post('/createUser', async (req, res) => {
 
         // Форматируем номер телефона
         const formattedPhone = formatPhoneNumber(phone);
-        
+
         const userData = {
             email: email,
             role: role,
@@ -592,6 +592,78 @@ app.post('/removePushSubscription', async (req, res) => {
         res.status(500).json({
             error: 'Ошибка удаления push-подписки: ' + error.message
         });
+    }
+});
+
+// ===== CALLDOG WEBHOOK =====
+app.post('/callDog/webhook', async (req, res) => {
+    try {
+        console.log('📞 CallDog webhook получен:', JSON.stringify(req.body, null, 2));
+
+        const { call, ...userParams } = req.body;
+
+        if (!call) {
+            console.log('⚠️ Webhook без данных о звонке');
+            return res.status(400).json({ error: 'Нет данных о звонке' });
+        }
+
+        // Сохраняем информацию о звонке в Firestore
+        const callData = {
+            phone: call.phone,
+            answer: call.answer,
+            status: call.status || 'unknown',
+            duration: call.duration || 0,
+            userParams: userParams,
+            receivedAt: new Date(),
+            timestamp: new Date()
+        };
+
+        // Сохраняем в коллекцию callDog_logs
+        await admin.firestore().collection('callDog_logs').add(callData);
+
+        console.log('✅ CallDog webhook сохранен в Firestore');
+
+        // Отправляем push-уведомление администратору о результате звонка
+        if (call.answer) {
+            const notificationPayload = {
+                title: '📞 Результат тревожного вызова',
+                body: `Номер ${call.phone}: ${call.answer === '1' ? 'Подтвердил тревогу' : 'Нажал ' + call.answer}`,
+                icon: '/icons/icon-192x192.png',
+                badge: '/icons/icon-192x192.png',
+                data: {
+                    type: 'callDog_result',
+                    phone: call.phone,
+                    answer: call.answer,
+                    url: '/admin'
+                }
+            };
+
+            // Получаем все push-подписки администраторов
+            const adminSubscriptions = await admin.firestore()
+                .collection('push_subscriptions')
+                .where('userRole', '==', 'admin')
+                .get();
+
+            const pushPromises = [];
+            adminSubscriptions.forEach(doc => {
+                const subscription = doc.data();
+                if (subscription.subscription) {
+                    pushPromises.push(
+                        webpush.sendNotification(subscription.subscription, JSON.stringify(notificationPayload))
+                            .catch(err => console.error('Ошибка отправки push:', err))
+                    );
+                }
+            });
+
+            await Promise.all(pushPromises);
+            console.log('📱 Push-уведомления отправлены администраторам');
+        }
+
+        res.json({ success: true, message: 'Webhook обработан' });
+
+    } catch (error) {
+        console.error('❌ Ошибка обработки CallDog webhook:', error);
+        res.status(500).json({ error: 'Ошибка обработки webhook' });
     }
 });
 
