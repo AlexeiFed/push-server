@@ -654,9 +654,9 @@ app.post('/callDog/send', async (req, res) => {
         if (!response.ok) {
             const errorData = await response.json();
             const errorMessage = errorData.message || response.statusText;
-            
+
             // Проверяем, является ли ошибка блокировкой спама
-            if (errorMessage.toLowerCase().includes('spam') || 
+            if (errorMessage.toLowerCase().includes('spam') ||
                 errorMessage.toLowerCase().includes('блокир') ||
                 errorMessage.toLowerCase().includes('заблокир') ||
                 response.status === 429) {
@@ -667,7 +667,7 @@ app.post('/callDog/send', async (req, res) => {
                     retryAfter: 300 // 5 минут
                 });
             }
-            
+
             return res.status(response.status).json({
                 success: false,
                 error: `CallDog API error: ${errorMessage}`
@@ -675,13 +675,25 @@ app.post('/callDog/send', async (req, res) => {
         }
 
         const result = await response.json();
-        console.log('✅ CallDog звонок отправлен:', result);
+        console.log('✅ CallDog API ответ:', JSON.stringify(result, null, 2));
 
-        res.json({
-            success: true,
-            callId: result.id?.toString(),
-            message: 'Тревожный вызов успешно отправлен'
-        });
+        // Проверяем, есть ли ID звонка в ответе
+        if (result.id) {
+            console.log('📞 ID звонка:', result.id);
+            res.json({
+                success: true,
+                callId: result.id.toString(),
+                message: 'Тревожный вызов успешно отправлен',
+                callDogResponse: result
+            });
+        } else {
+            console.log('⚠️ CallDog не вернул ID звонка. Возможно, модерация не отключена.');
+            res.json({
+                success: false,
+                error: 'CallDog не вернул ID звонка. Проверьте настройки модерации.',
+                callDogResponse: result
+            });
+        }
 
     } catch (error) {
         console.error('❌ Ошибка отправки CallDog звонка:', error);
