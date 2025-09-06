@@ -50,7 +50,7 @@ app.get('/status', (req, res) => {
         status: 'ok',
         timestamp: new Date().toISOString(),
         version: '2.2.0',
-        services: ['push', 'create-user', 'delete-user', 'force-logout', 'callDog-webhook']
+        services: ['push', 'create-user', 'delete-user', 'force-logout', 'callDog-status', 'callDog-send', 'callDog-webhook']
     });
 });
 
@@ -591,6 +591,103 @@ app.post('/removePushSubscription', async (req, res) => {
         console.error('Ошибка удаления push-подписки:', error);
         res.status(500).json({
             error: 'Ошибка удаления push-подписки: ' + error.message
+        });
+    }
+});
+
+// ===== CALLDOG STATUS =====
+app.get('/callDog/status', async (req, res) => {
+    try {
+        // Проверяем статус CallDog API
+        const response = await fetch('https://lk.calldog.ru/apiCalls/userInfo', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                apiKey: process.env.CALLDOG_API_KEY
+            })
+        });
+
+        if (response.ok) {
+            res.json({
+                status: 'ok',
+                message: 'CallDog API доступен',
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            res.status(503).json({
+                status: 'error',
+                message: 'CallDog API недоступен',
+                timestamp: new Date().toISOString()
+            });
+        }
+    } catch (error) {
+        console.error('❌ Ошибка проверки CallDog API:', error);
+        res.status(503).json({
+            status: 'error',
+            message: 'CallDog API недоступен',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// ===== CALLDOG SEND CALL =====
+app.post('/callDog/send', async (req, res) => {
+    try {
+        console.log('📞 Отправка CallDog звонка:', JSON.stringify(req.body, null, 2));
+
+        const requestData = req.body;
+
+        // Отправляем запрос к CallDog API
+        const response = await fetch('https://lk.calldog.ru/apiCalls/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            const errorMessage = errorData.message || response.statusText;
+            
+            // Проверяем, является ли ошибка блокировкой спама
+            if (errorMessage.toLowerCase().includes('spam') || 
+                errorMessage.toLowerCase().includes('блокир') ||
+                errorMessage.toLowerCase().includes('заблокир') ||
+                response.status === 429) {
+                return res.status(429).json({
+                    success: false,
+                    error: 'CallDog заблокировал запрос как спам. Попробуйте позже.',
+                    isSpamBlocked: true,
+                    retryAfter: 300 // 5 минут
+                });
+            }
+            
+            return res.status(response.status).json({
+                success: false,
+                error: `CallDog API error: ${errorMessage}`
+            });
+        }
+
+        const result = await response.json();
+        console.log('✅ CallDog звонок отправлен:', result);
+
+        res.json({
+            success: true,
+            callId: result.id?.toString(),
+            message: 'Тревожный вызов успешно отправлен'
+        });
+
+    } catch (error) {
+        console.error('❌ Ошибка отправки CallDog звонка:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Неизвестная ошибка при отправке вызова'
         });
     }
 });
