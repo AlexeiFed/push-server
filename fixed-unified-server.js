@@ -668,6 +668,17 @@ app.post('/callDog/send', async (req, res) => {
                 });
             }
 
+            // Проверяем лимит звонков на номер
+            if (errorMessage.includes('звонков на один номер') || 
+                errorMessage.includes('callsLimit')) {
+                return res.status(429).json({
+                    success: false,
+                    error: 'Превышен лимит звонков на номер (1 звонок/день). Попробуйте завтра или используйте другой номер.',
+                    isSpamBlocked: true,
+                    retryAfter: 86400 // 24 часа
+                });
+            }
+
             return res.status(response.status).json({
                 success: false,
                 error: `CallDog API error: ${errorMessage}`
@@ -677,23 +688,47 @@ app.post('/callDog/send', async (req, res) => {
         const result = await response.json();
         console.log('✅ CallDog API ответ:', JSON.stringify(result, null, 2));
 
-        // Проверяем, есть ли ID звонка в ответе
+        // Проверяем структуру ответа CallDog
+        if (result.status === 'success' && result.data && Array.isArray(result.data)) {
+            const callData = result.data[0];
+            
+            if (callData.status === 'error') {
+                console.log('❌ CallDog вернул ошибку:', callData.message);
+                return res.status(400).json({
+                    success: false,
+                    error: `CallDog: ${callData.message}`,
+                    callDogResponse: result
+                });
+            }
+            
+            if (callData.id) {
+                console.log('📞 ID звонка:', callData.id);
+                return res.json({
+                    success: true,
+                    callId: callData.id.toString(),
+                    message: 'Тревожный вызов успешно отправлен',
+                    callDogResponse: result
+                });
+            }
+        }
+
+        // Проверяем, есть ли ID звонка в корне ответа (старый формат)
         if (result.id) {
-            console.log('📞 ID звонка:', result.id);
-            res.json({
+            console.log('📞 ID звонка (старый формат):', result.id);
+            return res.json({
                 success: true,
                 callId: result.id.toString(),
                 message: 'Тревожный вызов успешно отправлен',
                 callDogResponse: result
             });
-        } else {
-            console.log('⚠️ CallDog не вернул ID звонка. Возможно, модерация не отключена.');
-            res.json({
-                success: false,
-                error: 'CallDog не вернул ID звонка. Проверьте настройки модерации.',
-                callDogResponse: result
-            });
         }
+
+        console.log('⚠️ CallDog не вернул ID звонка. Возможно, модерация не отключена.');
+        res.json({
+            success: false,
+            error: 'CallDog не вернул ID звонка. Проверьте настройки модерации.',
+            callDogResponse: result
+        });
 
     } catch (error) {
         console.error('❌ Ошибка отправки CallDog звонка:', error);
