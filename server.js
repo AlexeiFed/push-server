@@ -128,6 +128,48 @@ app.get('/stats', async (req, res) => {
     }
 });
 
+// Получение FCM токена через серверную аутентификацию
+app.post('/get-fcm-token', async (req, res) => {
+    try {
+        const { userId, userRole, deviceInfo } = req.body;
+
+        console.log('🔑 Получен запрос на FCM токен:', { userId, userRole });
+
+        // Валидация данных
+        if (!userId || !userRole) {
+            return res.status(400).json({
+                success: false,
+                message: 'Отсутствуют обязательные поля userId и userRole'
+            });
+        }
+
+        const admin = require('firebase-admin');
+        
+        // Создаем кастомный токен для FCM
+        const customToken = await admin.auth().createCustomToken(userId, {
+            role: userRole,
+            deviceInfo: deviceInfo || {}
+        });
+
+        console.log('✅ Custom token создан для пользователя:', userId);
+
+        res.json({
+            success: true,
+            customToken: customToken,
+            message: 'Custom token создан успешно',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('❌ Ошибка создания FCM токена:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Ошибка создания FCM токена',
+            error: error.message
+        });
+    }
+});
+
 // Запуск сервера
 app.listen(PORT, () => {
     console.log(`🚀 Push-server запущен на порту ${PORT}`);

@@ -669,7 +669,7 @@ app.post('/callDog/send', async (req, res) => {
             }
 
             // Проверяем лимит звонков на номер
-            if (errorMessage.includes('звонков на один номер') || 
+            if (errorMessage.includes('звонков на один номер') ||
                 errorMessage.includes('callsLimit')) {
                 return res.status(429).json({
                     success: false,
@@ -691,7 +691,7 @@ app.post('/callDog/send', async (req, res) => {
         // Проверяем структуру ответа CallDog
         if (result.status === 'success' && result.data && Array.isArray(result.data)) {
             const callData = result.data[0];
-            
+
             if (callData.status === 'error') {
                 console.log('❌ CallDog вернул ошибку:', callData.message);
                 return res.status(400).json({
@@ -700,7 +700,7 @@ app.post('/callDog/send', async (req, res) => {
                     callDogResponse: result
                 });
             }
-            
+
             if (callData.id) {
                 console.log('📞 ID звонка:', callData.id);
                 return res.json({
