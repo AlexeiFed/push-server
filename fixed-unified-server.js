@@ -811,11 +811,52 @@ app.post('/callDog/webhook', async (req, res) => {
     }
 });
 
+// ===== ПОЛУЧЕНИЕ FCM ТОКЕНА =====
+app.post('/get-fcm-token', async (req, res) => {
+    try {
+        const { userId, userRole, deviceInfo } = req.body;
+
+        console.log('🔑 Получен запрос на FCM токен:', { userId, userRole });
+
+        // Валидация данных
+        if (!userId || !userRole) {
+            return res.status(400).json({
+                success: false,
+                message: 'Отсутствуют обязательные поля userId и userRole'
+            });
+        }
+
+        // Создаем кастомный токен для FCM
+        const customToken = await admin.auth().createCustomToken(userId, {
+            role: userRole,
+            deviceInfo: deviceInfo || {}
+        });
+
+        console.log('✅ Custom token создан для пользователя:', userId);
+
+        res.json({
+            success: true,
+            customToken: customToken,
+            message: 'Custom token создан успешно',
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('❌ Ошибка создания FCM токена:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Ошибка создания FCM токена',
+            error: error.message
+        });
+    }
+});
+
 // ===== ЗАПУСК СЕРВЕРА =====
 app.listen(PORT, () => {
     console.log(`🚀 Исправленный объединенный сервер запущен на порту ${PORT}`);
     console.log(`📊 Статус: http://localhost:${PORT}/status`);
     console.log(`📈 Статистика: http://localhost:${PORT}/stats`);
+    console.log(`🔑 FCM токен: http://localhost:${PORT}/get-fcm-token`);
 });
 
 module.exports = app; 

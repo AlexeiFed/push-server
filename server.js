@@ -144,7 +144,7 @@ app.post('/get-fcm-token', async (req, res) => {
         }
 
         const admin = require('firebase-admin');
-        
+
         // Создаем кастомный токен для FCM
         const customToken = await admin.auth().createCustomToken(userId, {
             role: userRole,
