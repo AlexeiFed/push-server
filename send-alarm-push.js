@@ -61,6 +61,7 @@ async function sendAlarmPushToAll(customTitle, customBody, objectId, objectName)
             }
 
             try {
+                // Обычное уведомление с data для корректной работы в фоне
                 const payload = JSON.stringify({
                     title: customTitle || '🚨 ТРЕВОГА!',
                     body: customBody || 'Обнаружена угроза безопасности! Требуется немедленное внимание.',
@@ -71,20 +72,12 @@ async function sendAlarmPushToAll(customTitle, customBody, objectId, objectName)
                     data: {
                         url: objectId ? `/alarm/${objectId}` : '/alarm',
                         type: 'alarm',
-                        timestamp: Date.now(),
+                        timestamp: Date.now().toString(),
                         objectId: objectId || null,
-                        objectName: objectName || null
-                    },
-                    actions: [
-                        {
-                            action: 'open',
-                            title: 'Открыть PWA'
-                        },
-                        {
-                            action: 'close',
-                            title: 'Закрыть'
-                        }
-                    ]
+                        objectName: objectName || null,
+                        sound: '/sounds/alarm-siren.mp3',
+                        vibration: '1000,500,1000,500,1000,500,1000,500,1000'
+                    }
                 });
 
                 const result = await webpush.sendNotification(subscription, payload);
@@ -175,6 +168,7 @@ async function sendAlarmPushToUsers(userIds, customTitle, customBody, objectId, 
             }
 
             try {
+                // Обычное уведомление с data для корректной работы в фоне
                 const payload = JSON.stringify({
                     title: customTitle || '🚨 ТРЕВОГА!',
                     body: customBody || `Обнаружена угроза безопасности! Требуется немедленное внимание.`,
@@ -185,21 +179,13 @@ async function sendAlarmPushToUsers(userIds, customTitle, customBody, objectId, 
                     data: {
                         url: objectId ? `/alarm/${objectId}` : '/alarm',
                         type: 'alarm',
-                        timestamp: Date.now(),
+                        timestamp: Date.now().toString(),
                         user: subscriptionUserId,
                         objectId: objectId || null,
-                        objectName: objectName || null
-                    },
-                    actions: [
-                        {
-                            action: 'open',
-                            title: 'Открыть PWA'
-                        },
-                        {
-                            action: 'close',
-                            title: 'Закрыть'
-                        }
-                    ]
+                        objectName: objectName || null,
+                        sound: '/sounds/alarm-siren.mp3',
+                        vibration: '1000,500,1000,500,1000,500,1000,500,1000'
+                    }
                 });
 
                 const result = await webpush.sendNotification(subscription, payload);

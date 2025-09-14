@@ -92,6 +92,70 @@ app.post('/send-alarm', async (req, res) => {
     }
 });
 
+// Отправка тестового уведомления
+app.post('/send-test', async (req, res) => {
+    try {
+        const { title, body, testId, senderId, senderName } = req.body;
+
+        console.log('📡 Получен запрос на отправку тестового уведомления:', {
+            title,
+            body,
+            testId,
+            senderId,
+            senderName
+        });
+
+        // Проверяем защиту от спама
+        const now = Date.now();
+        const lastSend = lastSendTime.get('test') || 0;
+
+        if (now - lastSend < MIN_SEND_INTERVAL) {
+            const remainingTime = Math.ceil((MIN_SEND_INTERVAL - (now - lastSend)) / 1000);
+            console.log(`⏰ Слишком частые тестовые запросы. Ожидайте ${remainingTime} секунд`);
+            return res.status(429).json({
+                success: false,
+                message: `Слишком частые запросы. Ожидайте ${remainingTime} секунд`,
+                remainingTime
+            });
+        }
+
+        // Обновляем время последней отправки
+        lastSendTime.set('test', now);
+
+        // Отправляем тестовое уведомление всем пользователям
+        const result = await sendAlarmPushToAll({
+            title: title || 'Проверка связи',
+            body: body || 'Тестовое уведомление для проверки связи',
+            data: {
+                type: 'test-notification',
+                testId: testId || `test_${Date.now()}`,
+                senderId: senderId || 'system',
+                senderName: senderName || 'Система',
+                timestamp: Date.now()
+            }
+        });
+
+        console.log('✅ Тестовое уведомление отправлено:', result);
+
+        res.json({
+            success: true,
+            message: 'Тестовое уведомление отправлено',
+            sentCount: result.sentCount || 0,
+            errorCount: result.errorCount || 0,
+            testId: testId || `test_${Date.now()}`,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('❌ Ошибка отправки тестового уведомления:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Ошибка отправки тестового уведомления',
+            error: error.message
+        });
+    }
+});
+
 // Статистика подписок
 app.get('/stats', async (req, res) => {
     try {
